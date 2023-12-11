@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:snake/blank_pixel.dart';
 import 'package:snake/food_pixel.dart';
 import 'package:snake/snake_pixel.dart';
@@ -19,6 +21,27 @@ class _HomePageState extends State<HomePage> {
   int totalNumberOfSquares = 100;
   List<int> snakePos = [0, 1, 2];
   int foodPos = 55;
+  List<int>? bodySnake;
+
+  //user score
+  int currentScore = 0;
+  int? highScore;
+
+  @override
+  void initState() {
+    super.initState();
+    checkHighScore();
+  }
+
+  void checkHighScore() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      int? currentHighScore = prefs.getInt("highScore");
+      currentHighScore ??= 0;
+      highScore = currentHighScore;
+      print("THe high score is: $highScore");
+    });
+  }
 
   //snake direction is initially to the right
   var currentdirection = snake_direction.RIGHT;
@@ -34,9 +57,6 @@ class _HomePageState extends State<HomePage> {
           } else {
             snakePos.add(snakePos.last + 1);
           }
-
-          // remove tail
-          snakePos.removeAt(0);
         }
 
         break;
@@ -49,9 +69,6 @@ class _HomePageState extends State<HomePage> {
           } else {
             snakePos.add(snakePos.last - 1);
           }
-
-          // remove tail
-          snakePos.removeAt(0);
         }
 
         break;
@@ -63,9 +80,6 @@ class _HomePageState extends State<HomePage> {
           } else {
             snakePos.add(snakePos.last - rowSize);
           }
-
-          // remove tail
-          snakePos.removeAt(0);
         }
 
         break;
@@ -77,14 +91,48 @@ class _HomePageState extends State<HomePage> {
           } else {
             snakePos.add(snakePos.last + rowSize);
           }
-
-          // remove tail
-          snakePos.removeAt(0);
         }
 
         break;
       default:
     }
+    //snake is eating food
+
+    if (snakePos.last == foodPos) {
+      eatFood();
+    } else {
+      // remove tail
+      snakePos.removeAt(0);
+    }
+  }
+
+  void eatFood() {
+    setState(() {
+      currentScore++;
+      if (currentScore > highScore!) {
+        highScore = highScore! + 1;
+      }
+    });
+    while (snakePos.contains(foodPos)) {
+      //making sure the new food is not where the snake is
+      foodPos = Random().nextInt(totalNumberOfSquares);
+    }
+  }
+
+  //game over
+
+  bool gameOver() {
+    //the game is over when the snake runs into itself
+    //this occurs when there is a duplicate position in the snakePos list
+
+    //this list is the body of the snake (no head)
+    bodySnake = snakePos.sublist(0, snakePos.length - 1);
+
+    if (bodySnake!.contains(snakePos.last)) {
+      return true;
+    }
+
+    return false;
   }
 
   @override
@@ -94,7 +142,38 @@ class _HomePageState extends State<HomePage> {
       body: Column(
         children: [
           Expanded(
-            child: Container(),
+            child: Container(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  //user current score
+
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text("Current Score"),
+                      Text(
+                        currentScore.toString(),
+                        style: TextStyle(fontSize: 36),
+                      ),
+                    ],
+                  ),
+                  //highscores, top 5 or top 10
+
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("High Score"),
+                      Text(
+                        highScore.toString(),
+                        style:
+                            const TextStyle(fontSize: 36, color: Colors.green),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
           ),
           Expanded(
             flex: 3,
@@ -138,13 +217,11 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           Expanded(
-            child: Container(
-              child: Center(
-                child: MaterialButton(
-                  onPressed: startGame,
-                  child: Text("PLAY"),
-                  color: Colors.pink,
-                ),
+            child: Center(
+              child: MaterialButton(
+                onPressed: startGame,
+                color: Colors.pink,
+                child: const Text("PLAY"),
               ),
             ),
           ),
@@ -153,11 +230,57 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void saveHighScore() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    int? currentHighScore = prefs.getInt("highScore");
+    print("Current high score is $currentHighScore");
+    if (currentHighScore == null) {
+      prefs.setInt("highScore", currentScore);
+    } else if (currentHighScore < currentScore) {
+      prefs.setInt("highScore", currentScore);
+    }
+  }
+
   void startGame() {
     print("STARTED");
     Timer.periodic(Duration(milliseconds: 200), (timer) {
       setState(() {
+        //keep the snake moving
         moveSnake();
+
+        // check if the game is over
+
+        if (gameOver()) {
+          saveHighScore();
+          timer.cancel();
+          //display a message to the user
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text("Game over"),
+                content: Text("Your score is ${currentScore.toString()}"),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        currentScore = 0;
+                      });
+                      bodySnake = [];
+                      snakePos = [0, 1, 2];
+                      foodPos = 55;
+                      checkHighScore();
+                      startGame();
+
+                      Navigator.pop(context);
+                    },
+                    child: const Text("Restart"),
+                  ),
+                ],
+              );
+            },
+          );
+        }
       });
     });
   }
