@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:snake/homepage.dart';
+import 'package:snake/splash_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       debugShowCheckedModeBanner: false,
-      home: const HomePage(),
+      home: const SplashScreen(),
       theme: ThemeData(brightness: Brightness.dark),
     );
   }

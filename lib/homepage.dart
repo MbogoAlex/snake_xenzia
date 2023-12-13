@@ -22,10 +22,12 @@ class _HomePageState extends State<HomePage> {
   List<int> snakePos = [0, 1, 2];
   int foodPos = 55;
   List<int>? bodySnake;
+  bool newScore = false;
 
   //user score
   int currentScore = 0;
   int? highScore;
+  int? previousHighScore;
 
   @override
   void initState() {
@@ -36,9 +38,11 @@ class _HomePageState extends State<HomePage> {
   void checkHighScore() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      int? currentHighScore = prefs.getInt("highScore");
+      int? currentHighScore = prefs.getInt("theHighScore");
       currentHighScore ??= 0;
+
       highScore = currentHighScore;
+      previousHighScore = currentHighScore;
       print("THe high score is: $highScore");
     });
   }
@@ -128,7 +132,7 @@ class _HomePageState extends State<HomePage> {
     //this list is the body of the snake (no head)
     bodySnake = snakePos.sublist(0, snakePos.length - 1);
 
-    if (bodySnake!.contains(snakePos.last)) {
+    if (bodySnake!.contains(snakePos.last) && currentScore != 0) {
       return true;
     }
 
@@ -142,37 +146,34 @@ class _HomePageState extends State<HomePage> {
       body: Column(
         children: [
           Expanded(
-            child: Container(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  //user current score
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                //user current score
 
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text("Current Score"),
-                      Text(
-                        currentScore.toString(),
-                        style: TextStyle(fontSize: 36),
-                      ),
-                    ],
-                  ),
-                  //highscores, top 5 or top 10
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Current Score"),
+                    Text(
+                      currentScore.toString(),
+                      style: const TextStyle(fontSize: 36),
+                    ),
+                  ],
+                ),
+                //highscores, top 5 or top 10
 
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("High Score"),
-                      Text(
-                        highScore.toString(),
-                        style:
-                            const TextStyle(fontSize: 36, color: Colors.green),
-                      ),
-                    ],
-                  )
-                ],
-              ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("High Score"),
+                    Text(
+                      highScore.toString(),
+                      style: const TextStyle(fontSize: 36, color: Colors.green),
+                    ),
+                  ],
+                )
+              ],
             ),
           ),
           Expanded(
@@ -230,20 +231,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void saveHighScore() async {
+  Future<void> saveHighScore() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    int? currentHighScore = prefs.getInt("highScore");
+    int? currentHighScore = prefs.getInt("theHighScore");
     print("Current high score is $currentHighScore");
     if (currentHighScore == null) {
-      prefs.setInt("highScore", currentScore);
+      prefs.setInt("theHighScore", currentScore);
     } else if (currentHighScore < currentScore) {
-      prefs.setInt("highScore", currentScore);
+      prefs.setInt("theHighScore", currentScore);
     }
   }
 
   void startGame() {
     print("STARTED");
-    Timer.periodic(Duration(milliseconds: 200), (timer) {
+    Timer.periodic(const Duration(milliseconds: 200), (timer) {
       setState(() {
         //keep the snake moving
         moveSnake();
@@ -251,7 +252,19 @@ class _HomePageState extends State<HomePage> {
         // check if the game is over
 
         if (gameOver()) {
-          saveHighScore();
+          Future<void> save() async {
+            await saveHighScore();
+          }
+
+          save();
+
+          if (currentScore > previousHighScore!) {
+            newScore = true;
+          }
+
+          print(
+              "The current score is: $currentScore and high score is $highScore");
+
           timer.cancel();
           //display a message to the user
           showDialog(
@@ -259,7 +272,9 @@ class _HomePageState extends State<HomePage> {
             builder: (context) {
               return AlertDialog(
                 title: const Text("Game over"),
-                content: Text("Your score is ${currentScore.toString()}"),
+                content: newScore
+                    ? Text("High score! ${currentScore.toString()}")
+                    : Text("Your score is ${currentScore.toString()}"),
                 actions: [
                   TextButton(
                     onPressed: () {
@@ -269,6 +284,7 @@ class _HomePageState extends State<HomePage> {
                       bodySnake = [];
                       snakePos = [0, 1, 2];
                       foodPos = 55;
+                      newScore = false;
                       checkHighScore();
                       startGame();
 
