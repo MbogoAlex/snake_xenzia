@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:snake/homepage.dart';
+
 import 'package:snake/splash_screen.dart';
 
 void main() {
